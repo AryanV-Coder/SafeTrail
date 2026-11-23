@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Emergency Dispatch Dashboard - SafeTrail{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div>
+            <h1 class="panel-title">SafeTrail Dispatch Monitor</h1>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                Live incoming distress alerts and real-time responder console
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <span id="counter-active" class="badge badge-active">Active: {{ active_count }}</span>
+            <span id="counter-resolved" class="badge badge-resolved">Resolved: {{ resolved_count }}</span>
+            <span id="poll-indicator" style="font-size: 11px; color: var(--text-secondary); margin-left: 8px;">
+                Polling: 3s
+            </span>
+        </div>
+    </div>
+
+    <!-- Toolbar: Search, Filters & Export -->
+    <div class="toolbar">
+        <div class="filter-group">
+            <button type="button" class="filter-btn active" data-filter="all">All Incidents</button>
+            <button type="button" class="filter-btn" data-filter="ACTIVE">Active Only</button>
+            <button type="button" class="filter-btn" data-filter="RESOLVED">Resolved Only</button>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex: 1; max-width: 400px; justify-content: flex-end;">
+            <input type="text" id="incident-search" class="form-control" placeholder="Search by sender or message..." style="padding: 4px 8px; font-size: 13px;">
+            <a href="{% url 'export_csv' %}" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Incidents Data Table -->
+    <div class="table-wrapper">
+        <table class="data-table" id="incidents-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">ID</th>
+                    <th style="width: 90px;">Status</th>
+                    <th style="width: 140px;">Time (UTC)</th>
+                    <th style="width: 130px;">Sender</th>
+                    <th>Emergency Note</th>
+                    <th style="width: 170px;">Coordinates</th>
+                    <th style="width: 60px;">Pings</th>
+                    <th style="width: 160px; text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="incidents-tbody">
+                {% for alert in active_alerts %}
+                    <tr id="row-{{ alert.id }}" class="row-active incident-row" data-status="{{ alert.status }}" data-sender="{{ alert.sender_name|lower }}" data-msg="{{ alert.message|lower }}">
+                        <td><strong>#{{ alert.id }}</strong></td>
+                        <td><span class="badge badge-active">ACTIVE</span></td>
+                        <td style="font-size: 12px; color: var(--text-secondary);">{{ alert.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            <strong>{{ alert.sender_name }}</strong>
+                            {% if alert.sender_phone %}<br><small style="color: var(--text-secondary);">{{ alert.sender_phone }}</small>{% endif %}
+                        </td>
+                        <td>{{ alert.message|default:"-" }}</td>
+                        <td style="font-family: monospace; font-size: 12px;">
+                            {% with ping=alert.latest_ping %}
+                                {% if ping %}
+                                    {{ ping.latitude }}, {{ ping.longitude }}
+                                    <br><a href="{{ alert.google_maps_url }}" target="_blank" rel="noopener" style="font-size: 11px;">[Google Maps]</a>
+                                {% else %}
+                                    <span style="color: var(--text-secondary);">No GPS Ping</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td>{{ alert.pings.count }}</td>
+                        <td style="text-align: right;">
+                            <a href="{% url 'alert_detail' alert.id %}" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;">Trail</a>
+                            <button type="button" class="btn btn-primary btn-sm btn-resolve-modal" data-id="{{ alert.id }}" data-sender="{{ alert.sender_name }}" style="padding: 2px 6px; font-size: 11px;">
+                                Resolve
+                            </button>
+                        </td>
+                    </tr>
+                {% empty %}
+                    {% if not resolved_alerts %}
+                        <tr id="empty-row">
+                            <td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 24px;">
+                                No distress signals logged yet. Use the SOS Trigger page to submit test incidents.
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+
+                {% for alert in resolved_alerts %}
+                    <tr id="row-{{ alert.id }}" class="incident-row" data-status="{{ alert.status }}" data-sender="{{ alert.sender_name|lower }}" data-msg="{{ alert.message|lower }}">
+                        <td><strong>#{{ alert.id }}</strong></td>
+                        <td><span class="badge badge-resolved">RESOLVED</span></td>
+                        <td style="font-size: 12px; color: var(--text-secondary);">{{ alert.created_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>
+                            {{ alert.sender_name }}
+                            {% if alert.sender_phone %}<br><small style="color: var(--text-secondary);">{{ alert.sender_phone }}</small>{% endif %}
+                        </td>
+                        <td>{{ alert.message|default:"-" }}</td>
+                        <td style="font-family: monospace; font-size: 12px;">
+                            {% with ping=alert.latest_ping %}
+                                {% if ping %}
+                                    {{ ping.latitude }}, {{ ping.longitude }}
+                                    <br><a href="{{ alert.google_maps_url }}" target="_blank" rel="noopener" style="font-size: 11px;">[Google Maps]</a>
+                                {% else %}
+                                    <span style="color: var(--text-secondary);">-</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td>{{ alert.pings.count }}</td>
+                        <td style="text-align: right;">
+                            <a href="{% url 'alert_detail' alert.id %}" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;">Details</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Live Geographic Overview Map -->
+    <div style="margin-top: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-weight: 600; font-size: 13px;">Live Tactical Map (Active Emergencies)</span>
+            <span style="font-size: 12px; color: var(--text-secondary);">Powered by Leaflet.js & Esri Maps</span>
+        </div>
+        <div id="map"></div>
+    </div>
+</div>
+
+<!-- Simple Utilitarian Modal for Resolving an Alert -->
+<div id="resolve-dialog" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 9999; justify-content: center; align-items: center;">
+    <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; width: 440px; max-width: 90%; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+            <strong id="resolve-modal-title" style="font-size: 15px;">Resolve Incident</strong>
+            <button type="button" id="btn-close-resolve" style="background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        </div>
+        <form id="resolve-modal-form" method="post" action="">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" for="modal_resolution_notes">Resolution Summary / Responder Notes</label>
+                <textarea name="resolution_notes" id="modal_resolution_notes" class="form-control" rows="3" placeholder="e.g. Ranger team reached hiker, escorted safely back to base."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                <button type="button" id="btn-cancel-resolve" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Confirm & Mark Resolved</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}
+

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Responder Login - SafeTrail{% endblock %}
+
+{% block content %}
+<div class="narrow-container">
+    <div class="panel">
+        <div class="panel-header">
+            <h1 class="panel-title">Responder Sign In</h1>
+            <span class="badge badge-resolved">Secure Access</span>
+        </div>
+
+        {% if form.errors %}
+            <div class="alert-message alert-error">
+                Invalid username or password. Please try again.
+            </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" for="id_username">Username</label>
+                <input type="text" name="username" autofocus required id="id_username" class="form-control" autocomplete="username">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="id_password">Password</label>
+                <input type="password" name="password" required id="id_password" class="form-control" autocomplete="current-password">
+            </div>
+
+            <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: center;">
+                <button type="submit" class="btn btn-primary">Log In</button>
+                <a href="{% url 'register' %}" style="font-size: 13px;">Create account</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
