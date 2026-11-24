@@ -22,5 +22,6 @@ urlpatterns = [
     path('api/trigger-sos/', api_views.trigger_sos_api, name='api_trigger_sos'),
     path('api/ping-location/<int:alert_id>/', api_views.ping_location_api, name='api_ping_location'),
     path('api/live-alerts/', api_views.live_alerts_api, name='api_live_alerts'),
+    path('api/alerts/<int:alert_id>/pings/', api_views.alert_pings_api, name='api_alert_pings'),
 ]
 

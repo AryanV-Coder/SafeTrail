@@ -141,3 +141,19 @@ class SafeTrailSystemTests(TestCase):
         content = response.content.decode('utf-8')
         self.assertIn('Incident ID,Status,Sender Name', content)
         self.assertIn('Forest User', content)
+
+    def test_alert_pings_api(self):
+        alert = EmergencyAlert.objects.create(
+            sender_name="Live Hiker",
+            status="ACTIVE"
+        )
+        LocationPing.objects.create(alert=alert, latitude=28.61, longitude=77.20)
+        LocationPing.objects.create(alert=alert, latitude=28.62, longitude=77.21)
+
+        response = self.client.get(reverse('api_alert_pings', args=[alert.id]))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['total_pings'], 2)
+        self.assertEqual(len(data['pings']), 2)
+        self.assertEqual(data['alert_status'], 'ACTIVE')

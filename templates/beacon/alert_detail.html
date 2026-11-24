@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Incident #{{ alert.id }} - SafeTrail{% endblock %}
+{% block title %}Incident #{{ alert.id }} Trail - SafeTrail{% endblock %}
 
 {% block content %}
 <div style="margin-bottom: 14px;">
@@ -18,11 +18,14 @@
                 Reported at {{ alert.created_at|date:"Y-m-d H:i:s" }} UTC
             </div>
         </div>
-        <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="detail-status-badge" class="badge {% if alert.status == 'ACTIVE' %}badge-active{% else %}badge-resolved{% endif %}">
+                {% if alert.status == 'ACTIVE' %}ACTIVE DISTRESS{% else %}RESOLVED{% endif %}
+            </span>
             {% if alert.status == 'ACTIVE' %}
-                <span class="badge badge-active">ACTIVE DISTRESS</span>
-            {% else %}
-                <span class="badge badge-resolved">RESOLVED</span>
+                <span id="trail-polling-indicator" style="font-size: 11px; color: var(--text-secondary);">
+                    Live Polling: 3s
+                </span>
             {% endif %}
         </div>
     </div>
@@ -39,11 +42,11 @@
         </div>
         <div>
             <strong style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase;">Assigned Responder:</strong>
-            <div style="font-size: 14px;">{{ alert.assigned_contact.username|default:"Unassigned" }}</div>
+            <div id="detail-assigned-contact" style="font-size: 14px;">{{ alert.assigned_contact.username|default:"Unassigned" }}</div>
         </div>
         <div>
             <strong style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase;">Total GPS Pings:</strong>
-            <div style="font-size: 14px;">{{ pings.count }}</div>
+            <div id="detail-total-pings" style="font-size: 14px; font-weight: 600;">{{ pings.count }}</div>
         </div>
     </div>
 
@@ -54,44 +57,42 @@
         </div>
     </div>
 
-    {% if alert.status == 'RESOLVED' %}
-        <div style="background: #dafbe1; border: 1px solid #8ce99a; border-radius: 4px; padding: 12px; margin-bottom: 18px;">
-            <strong style="color: #0f5132;">Resolution Details:</strong>
-            <div style="font-size: 13px; margin-top: 4px;">
-                Resolved At: {{ alert.resolved_at|date:"Y-m-d H:i:s" }} UTC<br>
-                Notes: {{ alert.resolution_notes|default:"No notes added." }}
+    <div id="resolution-box">
+        {% if alert.status == 'RESOLVED' %}
+            <div style="background: #dafbe1; border: 1px solid #8ce99a; border-radius: 4px; padding: 12px; margin-bottom: 18px;">
+                <strong style="color: #0f5132;">Resolution Details:</strong>
+                <div style="font-size: 13px; margin-top: 4px;">
+                    Resolved At: {{ alert.resolved_at|date:"Y-m-d H:i:s" }} UTC<br>
+                    Notes: {{ alert.resolution_notes|default:"No notes added." }}
+                </div>
             </div>
-        </div>
-    {% elif resolve_form %}
-        <!-- Inline Resolution Form -->
-        <div style="background: #fff8f8; border: 1px solid var(--danger-border); border-radius: 4px; padding: 14px; margin-bottom: 20px;">
-            <strong style="color: var(--danger); font-size: 14px;">Resolve Active Emergency</strong>
-            <form method="post" action="{% url 'resolve_alert' alert.id %}" style="margin-top: 10px;">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label class="form-label" for="id_resolution_notes">Resolution Notes</label>
-                    {{ resolve_form.resolution_notes }}
-                </div>
-                <div class="form-group" style="max-width: 250px;">
-                    <label class="form-label" for="id_assigned_contact">Assign Responder</label>
-                    {{ resolve_form.assigned_contact }}
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm">Save & Mark Resolved</button>
-            </form>
-        </div>
-    {% endif %}
+        {% elif resolve_form %}
+            <!-- Inline Resolution Form -->
+            <div style="background: #fff8f8; border: 1px solid var(--danger-border); border-radius: 4px; padding: 14px; margin-bottom: 20px;">
+                <strong style="color: var(--danger); font-size: 14px;">Resolve Active Emergency</strong>
+                <form method="post" action="{% url 'resolve_alert' alert.id %}" style="margin-top: 10px;">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label" for="id_resolution_notes">Resolution Notes</label>
+                        {{ resolve_form.resolution_notes }}
+                    </div>
+                    <div class="form-group" style="max-width: 250px;">
+                        <label class="form-label" for="id_assigned_contact">Assign Responder</label>
+                        {{ resolve_form.assigned_contact }}
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Save & Mark Resolved</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
 
     <!-- Breadcrumb Trail Map -->
     <div style="margin-top: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <strong style="font-size: 14px;">Historical Movement Trail (GPS Breadcrumbs)</strong>
-            {% with ping=alert.latest_ping %}
-                {% if ping %}
-                    <a href="{{ alert.google_maps_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;">
-                        Open Latest in Google Maps
-                    </a>
-                {% endif %}
-            {% endwith %}
+            <strong style="font-size: 14px;">Live Movement Trail (GPS Breadcrumbs)</strong>
+            <a id="detail-gmaps-link" href="{{ alert.google_maps_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;">
+                Open Latest in Google Maps
+            </a>
         </div>
         <div id="trail-map"></div>
     </div>
@@ -110,9 +111,9 @@
                         <th>Timestamp (UTC)</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="trail-pings-tbody">
                     {% for ping in pings %}
-                        <tr>
+                        <tr id="ping-row-{{ forloop.counter }}">
                             <td>{{ forloop.counter }}</td>
                             <td style="font-family: monospace;">{{ ping.latitude }}</td>
                             <td style="font-family: monospace;">{{ ping.longitude }}</td>
@@ -120,7 +121,7 @@
                             <td style="color: var(--text-secondary); font-size: 12px;">{{ ping.timestamp|date:"Y-m-d H:i:s" }}</td>
                         </tr>
                     {% empty %}
-                        <tr>
+                        <tr id="empty-pings-row">
                             <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 16px;">
                                 No location pings logged for this incident.
                             </td>
@@ -146,59 +147,167 @@
 {% block extra_scripts %}
 <script>
     (function () {
-        const trailData = {{ trail_json|safe }};
-        if (!trailData || trailData.length === 0) return;
+        const alertId = {{ alert.id }};
+        let currentStatus = "{{ alert.status }}";
+        let currentPings = {{ trail_json|safe }} || [];
+        let map = null;
+        let polylineLayer = null;
+        let markerLayers = [];
+        let pollInterval = null;
 
-        const map = L.map('trail-map').setView([trailData[0].lat, trailData[0].lng], 14);
+        const totalPingsEl = document.getElementById('detail-total-pings');
+        const gmapsLinkEl = document.getElementById('detail-gmaps-link');
+        const pingsTbody = document.getElementById('trail-pings-tbody');
+        const statusBadge = document.getElementById('detail-status-badge');
+        const pollIndicator = document.getElementById('trail-polling-indicator');
 
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS'
-        }).addTo(map);
+        // 1. Initialize Map
+        function initMap() {
+            const mapContainer = document.getElementById('trail-map');
+            if (!mapContainer) return;
 
-        const latLngs = trailData.map(p => [p.lat, p.lng]);
+            const initialCenter = currentPings.length > 0 
+                ? [currentPings[0].lat, currentPings[0].lng] 
+                : [28.6139, 77.2090];
 
-        // Draw polyline connecting breadcrumbs
-        const polyline = L.polyline(latLngs, {
-            color: '#cf222e',
-            weight: 3,
-            opacity: 0.8,
-            dashArray: '5, 8'
-        }).addTo(map);
+            map = L.map('trail-map').setView(initialCenter, 13);
 
-        // Add markers for start and latest points
-        trailData.forEach((p, idx) => {
-            const isFirst = (idx === 0);
-            const isLast = (idx === trailData.length - 1);
-
-            let color = '#57606a';
-            let radius = 4;
-            let label = `Ping #${idx + 1} (${p.time})`;
-
-            if (isFirst) {
-                color = '#0969da';
-                radius = 6;
-                label = `Initial SOS Point (${p.time})`;
-            }
-            if (isLast) {
-                color = '#cf222e';
-                radius = 7;
-                label = `Latest Position (${p.time})`;
-            }
-
-            const marker = L.circleMarker([p.lat, p.lng], {
-                radius: radius,
-                fillColor: color,
-                color: '#ffffff',
-                weight: 1.5,
-                fillOpacity: 1
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS'
             }).addTo(map);
 
-            marker.bindPopup(`<strong>${label}</strong><br>Coords: ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`);
-        });
+            renderTrail(currentPings);
+        }
 
-        map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
+        // 2. Render Polyline & Markers on Map
+        function renderTrail(pingsList) {
+            if (!map || !pingsList || pingsList.length === 0) return;
+
+            const latLngs = pingsList.map(p => [p.lat, p.lng]);
+
+            // Update or create polyline
+            if (polylineLayer) {
+                polylineLayer.setLatLngs(latLngs);
+            } else {
+                polylineLayer = L.polyline(latLngs, {
+                    color: '#cf222e',
+                    weight: 3,
+                    opacity: 0.85,
+                    dashArray: '6, 8'
+                }).addTo(map);
+            }
+
+            // Remove existing markers
+            markerLayers.forEach(m => map.removeLayer(m));
+            markerLayers = [];
+
+            // Add markers
+            pingsList.forEach((p, idx) => {
+                const isFirst = (idx === 0);
+                const isLast = (idx === pingsList.length - 1);
+
+                let color = '#57606a';
+                let radius = 4;
+                let label = `Ping #${idx + 1} (${p.time || ''})`;
+
+                if (isFirst) {
+                    color = '#0969da';
+                    radius = 6;
+                    label = `Initial SOS Point (${p.time || ''})`;
+                }
+                if (isLast) {
+                    color = '#cf222e';
+                    radius = 7;
+                    label = `Latest Position (${p.time || ''})`;
+                }
+
+                const marker = L.circleMarker([p.lat, p.lng], {
+                    radius: radius,
+                    fillColor: color,
+                    color: '#ffffff',
+                    weight: 1.5,
+                    fillOpacity: 1
+                }).addTo(map);
+
+                marker.bindPopup(`<strong>${label}</strong><br>Coords: ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`);
+                markerLayers.push(marker);
+            });
+
+            // Smoothly adjust map view to fit entire route
+            if (latLngs.length === 1) {
+                map.setView(latLngs[0], 14);
+            } else {
+                map.fitBounds(polylineLayer.getBounds(), { padding: [40, 40] });
+            }
+        }
+
+        // 3. Update Pings Table in DOM
+        function updatePingsTable(pingsList) {
+            if (!pingsTbody) return;
+
+            const emptyRow = document.getElementById('empty-pings-row');
+            if (emptyRow) emptyRow.remove();
+
+            pingsTbody.innerHTML = '';
+            pingsList.forEach((p, idx) => {
+                const tr = document.createElement('tr');
+                tr.id = `ping-row-${idx + 1}`;
+                const accText = p.accuracy ? `&plusmn;${p.accuracy}m` : '-';
+                tr.innerHTML = `
+                    <td>${idx + 1}</td>
+                    <td style="font-family: monospace;">${p.lat.toFixed(6)}</td>
+                    <td style="font-family: monospace;">${p.lng.toFixed(6)}</td>
+                    <td>${accText}</td>
+                    <td style="color: var(--text-secondary); font-size: 12px;">${p.timestamp || p.time || ''}</td>
+                `;
+                pingsTbody.appendChild(tr);
+            });
+        }
+
+        // 4. Live AJAX Polling for New Pings
+        function pollTrailUpdates() {
+            fetch(`/api/alerts/${alertId}/pings/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') return;
+
+                    // Update total pings and map if new coordinate arrived
+                    if (data.total_pings !== currentPings.length) {
+                        currentPings = data.pings;
+
+                        if (totalPingsEl) totalPingsEl.textContent = data.total_pings;
+                        if (gmapsLinkEl && data.google_maps_url) gmapsLinkEl.href = data.google_maps_url;
+
+                        renderTrail(data.pings);
+                        updatePingsTable(data.pings);
+                    }
+
+                    // Check if alert was resolved
+                    if (data.alert_status !== currentStatus) {
+                        currentStatus = data.alert_status;
+                        if (currentStatus === 'RESOLVED') {
+                            if (statusBadge) {
+                                statusBadge.className = 'badge badge-resolved';
+                                statusBadge.textContent = 'RESOLVED';
+                            }
+                            if (pollIndicator) pollIndicator.style.display = 'none';
+                            clearInterval(pollInterval);
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.warn('Trail poll error:', err);
+                });
+        }
+
+        // Initialize map immediately
+        initMap();
+
+        // Start live polling every 3 seconds if incident is active
+        if (currentStatus === 'ACTIVE') {
+            pollInterval = setInterval(pollTrailUpdates, 3000);
+        }
     })();
 </script>
 {% endblock %}
-

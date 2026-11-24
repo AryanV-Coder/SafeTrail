@@ -175,3 +175,39 @@ def live_alerts_api(request):
         "alerts": alerts_data
     })
 
+
+@require_http_methods(["GET"])
+def alert_pings_api(request, alert_id):
+    """
+    Returns full chronological location trail for an individual incident.
+    Used for live real-time AJAX trail updates on the incident detail dashboard.
+    """
+    try:
+        alert = EmergencyAlert.objects.prefetch_related('pings').get(pk=alert_id)
+    except EmergencyAlert.DoesNotExist:
+        return JsonResponse({"status": "error", "message": f"Alert #{alert_id} not found."}, status=404)
+
+    pings_qs = alert.pings.order_by('timestamp')
+    pings_data = [
+        {
+            "id": p.id,
+            "lat": float(p.latitude),
+            "lng": float(p.longitude),
+            "accuracy": p.accuracy,
+            "timestamp": p.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            "time": p.timestamp.strftime('%H:%M:%S')
+        }
+        for p in pings_qs
+    ]
+
+    latest_ping = alert.latest_ping
+    return JsonResponse({
+        "status": "success",
+        "alert_id": alert.id,
+        "alert_status": alert.status,
+        "total_pings": len(pings_data),
+        "latest_coords": f"{latest_ping.latitude}, {latest_ping.longitude}" if latest_ping else None,
+        "google_maps_url": alert.google_maps_url,
+        "pings": pings_data
+    })
+
