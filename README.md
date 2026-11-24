@@ -39,7 +39,53 @@ The entire project runs inside a single, modular Django server with no external 
 
 ---
 
-## 3. Directory Layout
+## 3. Database Design (Django ORM)
+
+SafeTrail connects users, emergency incidents, and continuous GPS location updates using a relational model structure managed via the Django ORM:
+
+```mermaid
+erDiagram
+    AUTH_USER ||--o{ EMERGENCY_ALERT : "assigned_contact"
+    EMERGENCY_ALERT ||--o{ LOCATION_PING : "pings (one-to-many)"
+
+    AUTH_USER {
+        int id PK
+        string username
+        string email
+        string first_name
+        string last_name
+        boolean is_staff
+    }
+
+    EMERGENCY_ALERT {
+        int id PK
+        string sender_name "max_length=100"
+        string sender_phone "max_length=20, optional"
+        string status "ACTIVE | RESOLVED"
+        text message "Distress description"
+        datetime created_at "auto_now_add"
+        datetime resolved_at "nullable"
+        text resolution_notes "Responder outcome"
+        int assigned_contact_id FK "nullable, User"
+    }
+
+    LOCATION_PING {
+        int id PK
+        int alert_id FK "EmergencyAlert"
+        decimal latitude "max_digits=9, decimal_places=6"
+        decimal longitude "max_digits=9, decimal_places=6"
+        float accuracy "meters, nullable"
+        datetime timestamp "auto_now_add"
+    }
+```
+
+### Model Relationships:
+- **`EmergencyAlert` $\rightarrow$ `User` (Many-to-One)**: An incident can optionally be claimed or assigned to an emergency responder (`assigned_contact`). If the user account is removed, `on_delete=models.SET_NULL` preserves the incident audit history.
+- **`EmergencyAlert` $\rightarrow$ `LocationPing` (One-to-Many)**: A single distress signal can receive continuous location updates over time (`related_name='pings'`). If an alert is purged, `on_delete=models.CASCADE` deletes all associated pings to maintain relational integrity.
+
+---
+
+## 4. Directory Layout
 
 ```text
 SafeTrail/
@@ -78,7 +124,7 @@ SafeTrail/
 
 ---
 
-## 4. Getting Started
+## 5. Getting Started
 
 ### Prerequisites
 - Python 3.10+ installed on your system.
@@ -110,7 +156,7 @@ SafeTrail/
 
 ---
 
-## 5. Default Credentials & Access Points
+## 6. Default Credentials & Access Points
 
 The local database comes pre-seeded with a superuser account for immediate testing:
 
@@ -128,7 +174,7 @@ The local database comes pre-seeded with a superuser account for immediate testi
 
 ---
 
-## 6. How to Demonstrate in the Lab
+## 7. How to Demonstrate in the Lab
 
 1. **Step 1: Open the Dashboard**:
    - Log in to `http://127.0.0.1:8000/dashboard/` using `admin` / `admin123`.
@@ -136,7 +182,7 @@ The local database comes pre-seeded with a superuser account for immediate testi
 
 2. **Step 2: Trigger an SOS from Mobile or Another Browser Tab**:
    - Open `http://127.0.0.1:8000/trigger/` (or use your laptop's local network IP `http://<laptop-ip>:8000/trigger/` on your smartphone).
-   - Enter your name, click **"Use Demo Coordinates"** (or allow browser GPS), and click **"SEND EMERGENCY SOS"**.
+   - Enter your name, click **"Use Demo Coordinates (India)"** (or allow browser GPS), and click **"SEND EMERGENCY SOS"**.
 
 3. **Step 3: Observe Real-Time AJAX Updates**:
    - Switch back to the dashboard tab.
@@ -151,7 +197,7 @@ The local database comes pre-seeded with a superuser account for immediate testi
 
 ---
 
-## 7. Running Automated Tests
+## 8. Running Automated Tests
 
 Run the full automated test suite covering API ingestion, coordinate validation, live polling, permissions, and CSV export:
 

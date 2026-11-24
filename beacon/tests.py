@@ -17,10 +17,10 @@ class SafeTrailSystemTests(TestCase):
     def test_trigger_sos_api_valid(self):
         payload = {
             "sender_name": "John Doe",
-            "sender_phone": "+15551234567",
+            "sender_phone": "+919876543210",
             "message": "Injured knee on ridge",
-            "latitude": 37.774929,
-            "longitude": -122.419416,
+            "latitude": 28.613929,
+            "longitude": 77.209021,
             "accuracy": 8.5
         }
         response = self.client.post(
@@ -38,7 +38,7 @@ class SafeTrailSystemTests(TestCase):
         self.assertEqual(alert.sender_name, "John Doe")
         self.assertEqual(alert.status, "ACTIVE")
         self.assertEqual(alert.pings.count(), 1)
-        self.assertAlmostEqual(float(alert.latest_ping.latitude), 37.774929, places=5)
+        self.assertAlmostEqual(float(alert.latest_ping.latitude), 28.613929, places=5)
 
     def test_trigger_sos_api_invalid_coords(self):
         # Latitude out of bounds (> 90)
@@ -61,12 +61,12 @@ class SafeTrailSystemTests(TestCase):
             status="ACTIVE"
         )
         # Initial ping
-        LocationPing.objects.create(alert=alert, latitude=37.7749, longitude=-122.4194)
+        LocationPing.objects.create(alert=alert, latitude=28.6139, longitude=77.2090)
 
         # Send subsequent ping via API
         payload = {
-            "latitude": 37.7755,
-            "longitude": -122.4201,
+            "latitude": 28.6145,
+            "longitude": 77.2095,
             "accuracy": 5.0
         }
         response = self.client.post(
@@ -83,7 +83,7 @@ class SafeTrailSystemTests(TestCase):
             status="ACTIVE",
             message="Need help"
         )
-        LocationPing.objects.create(alert=alert, latitude=37.1, longitude=-122.1)
+        LocationPing.objects.create(alert=alert, latitude=28.61, longitude=77.20)
 
         response = self.client.get(reverse('api_live_alerts'))
         self.assertEqual(response.status_code, 200)
@@ -130,7 +130,7 @@ class SafeTrailSystemTests(TestCase):
             status="ACTIVE",
             message="Test distress"
         )
-        LocationPing.objects.create(alert=alert, latitude=37.5, longitude=-122.5)
+        LocationPing.objects.create(alert=alert, latitude=28.65, longitude=77.40)
 
         self.client.login(username='ranger1', password='password123')
         response = self.client.get(reverse('export_csv'))

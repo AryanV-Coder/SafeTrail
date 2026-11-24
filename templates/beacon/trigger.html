@@ -40,17 +40,17 @@
         <form id="sos-form">
             <div class="form-group">
                 <label class="form-label" for="sender_name">Your Name / Hiker ID *</label>
-                <input type="text" id="sender_name" name="sender_name" class="form-control" required placeholder="e.g. Alex Morgan" autocomplete="name">
+                <input type="text" id="sender_name" name="sender_name" class="form-control" required placeholder="e.g. Aryan Sharma" autocomplete="name">
             </div>
 
             <div class="form-group">
                 <label class="form-label" for="sender_phone">Phone Number (Optional)</label>
-                <input type="tel" id="sender_phone" name="sender_phone" class="form-control" placeholder="e.g. +1 555-0199" autocomplete="tel">
+                <input type="tel" id="sender_phone" name="sender_phone" class="form-control" placeholder="e.g. +91 98765 43210" autocomplete="tel">
             </div>
 
             <div class="form-group">
                 <label class="form-label" for="sos_message">Emergency Note (Optional)</label>
-                <textarea id="sos_message" name="message" class="form-control" rows="2" placeholder="e.g. Lost off trail near ridge, low battery"></textarea>
+                <textarea id="sos_message" name="message" class="form-control" rows="2" placeholder="e.g. Lost off trail near ridge, need assistance"></textarea>
             </div>
 
             <!-- GPS Status Box -->
@@ -58,7 +58,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <span style="font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--text-secondary);">GPS Device Status</span>
                     <button type="button" id="btn-demo-coords" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 11px;">
-                        Use Demo Coordinates
+                        Use Demo Coordinates (India)
                     </button>
                 </div>
                 <div id="gps-status-text" style="font-size: 13px; color: var(--text-primary);">
@@ -69,9 +69,9 @@
                 </div>
             </div>
 
-            <input type="hidden" id="latitude" name="latitude">
-            <input type="hidden" id="longitude" name="longitude">
-            <input type="hidden" id="accuracy" name="accuracy">
+            <input type="hidden" id="latitude" name="latitude" value="28.613900">
+            <input type="hidden" id="longitude" name="longitude" value="77.209000">
+            <input type="hidden" id="accuracy" name="accuracy" value="10.0">
 
             <button type="submit" id="btn-send-sos" class="btn-sos">
                 SEND EMERGENCY SOS
@@ -87,6 +87,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{% static 'js/trigger.js' %}"></script>
+<script src="{% static 'js/trigger.js' %}?v=2.2"></script>
 {% endblock %}
 

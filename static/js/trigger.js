@@ -1,11 +1,31 @@
 // SafeTrail - Mobile/Client SOS Trigger Logic
 
 (function () {
-    let currentLat = null;
-    let currentLng = null;
-    let currentAccuracy = null;
+    // Realistic structured Indian trail route (~500m per ping, straight -> turn right -> turn left -> straight)
+    const DEMO_TRAIL_WAYPOINTS = [
+        { lat: 28.613900, lng: 77.209000 }, // Waypoint 0: Trailhead Start (SOS Point)
+        { lat: 28.618500, lng: 77.209000 }, // Waypoint 1: Straight North (+500m)
+        { lat: 28.623100, lng: 77.209000 }, // Waypoint 2: Straight North (+500m)
+        { lat: 28.623100, lng: 77.214000 }, // Waypoint 3: Turn Right -> East (+500m)
+        { lat: 28.623100, lng: 77.219000 }, // Waypoint 4: Straight East (+500m)
+        { lat: 28.623100, lng: 77.224000 }, // Waypoint 5: Straight East (+500m)
+        { lat: 28.627700, lng: 77.224000 }, // Waypoint 6: Turn Left -> North (+500m)
+        { lat: 28.632300, lng: 77.224000 }, // Waypoint 7: Straight North (+500m)
+        { lat: 28.636900, lng: 77.224000 }, // Waypoint 8: Straight North (+500m)
+        { lat: 28.636900, lng: 77.219000 }, // Waypoint 9: Turn Left -> West (+500m)
+        { lat: 28.636900, lng: 77.214000 }, // Waypoint 10: Straight West (+500m)
+        { lat: 28.641500, lng: 77.214000 }, // Waypoint 11: Turn Right -> North (+500m)
+        { lat: 28.646100, lng: 77.214000 }, // Waypoint 12: Straight North (+500m)
+        { lat: 28.650700, lng: 77.214000 }  // Waypoint 13: Straight North (+500m)
+    ];
+    let demoWaypointIndex = 0;
+
+    let currentLat = DEMO_TRAIL_WAYPOINTS[0].lat;
+    let currentLng = DEMO_TRAIL_WAYPOINTS[0].lng;
+    let currentAccuracy = 10.0;
     let activeAlertId = null;
     let pingInterval = null;
+    let isDemoMode = false;
 
     const gpsStatusText = document.getElementById('gps-status-text');
     const gpsCoordsDisplay = document.getElementById('gps-coords-display');
@@ -88,11 +108,21 @@
     // Demo coordinates button (useful for classroom/lab evaluation without GPS wait)
     if (btnDemo) {
         btnDemo.addEventListener('click', function () {
-            // Default demo coordinate (e.g. scenic park trail)
-            const demoLat = 37.774929;
-            const demoLng = -122.419416;
-            updateCoordinates(demoLat, demoLng, 8.0, 'Demo Lab Coordinates Active');
+            isDemoMode = true;
+            demoWaypointIndex = 0;
+            const startPoint = DEMO_TRAIL_WAYPOINTS[0];
+            updateCoordinates(startPoint.lat, startPoint.lng, 5.0, 'Indian Demo Trail Active (Starting Point)');
             if (formError) formError.style.display = 'none';
+
+            // Auto-fill test inputs if empty so user can send immediately
+            const nameField = document.getElementById('sender_name');
+            const msgField = document.getElementById('sos_message');
+            if (nameField && !nameField.value.trim()) {
+                nameField.value = 'Demo Hiker (India)';
+            }
+            if (msgField && !msgField.value.trim()) {
+                msgField.value = 'Test emergency broadcast from Trail A, NCR.';
+            }
         });
     }
 
@@ -171,21 +201,25 @@
         });
     }
 
-    // Send periodic pings while alert is active
+    // Send periodic pings while alert is active (automatically every 6s in demo mode)
     function startPeriodicPings() {
         if (pingInterval) clearInterval(pingInterval);
+
+        const intervalMs = isDemoMode ? 6000 : 10000;
 
         pingInterval = setInterval(function () {
             if (!activeAlertId) return;
 
-            // Try device GPS, or simulate small movement if in demo mode
-            if (navigator.geolocation) {
+            if (isDemoMode) {
+                // If demo mode is active, strictly keep Indian coordinates and simulate movement
+                simulateDriftPing();
+            } else if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     function (pos) {
                         sendPing(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
                     },
                     function () {
-                        // If device GPS lost or denied, slightly jitter demo position to simulate trail movement
+                        // If device GPS lost or denied, slightly jitter position
                         simulateDriftPing();
                     },
                     { enableHighAccuracy: true, timeout: 5000, maximumAge: 3000 }
@@ -193,15 +227,23 @@
             } else {
                 simulateDriftPing();
             }
-        }, 10000);
+        }, intervalMs);
     }
 
     function simulateDriftPing() {
         if (currentLat === null || currentLng === null) return;
-        // Small step ~10 meters
-        currentLat += (Math.random() - 0.5) * 0.0002;
-        currentLng += (Math.random() - 0.5) * 0.0002;
-        sendPing(currentLat, currentLng, 10.0);
+
+        // Follow realistic structured route: straight -> turn right -> turn left -> straight
+        demoWaypointIndex++;
+        if (demoWaypointIndex < DEMO_TRAIL_WAYPOINTS.length) {
+            currentLat = DEMO_TRAIL_WAYPOINTS[demoWaypointIndex].lat;
+            currentLng = DEMO_TRAIL_WAYPOINTS[demoWaypointIndex].lng;
+        } else {
+            // If pings continue past defined route, smoothly advance straight North
+            currentLat += 0.0046;
+        }
+
+        sendPing(currentLat, currentLng, 5.0);
     }
 
     function sendPing(lat, lng, acc) {
@@ -241,6 +283,8 @@
             pingInterval = null;
         }
         activeAlertId = null;
+        isDemoMode = false;
+        demoWaypointIndex = 0;
         activeBanner.style.display = 'none';
         triggerPanel.style.display = 'block';
         btnSendSos.disabled = false;
